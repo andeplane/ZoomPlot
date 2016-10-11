@@ -74,6 +74,7 @@ private:
     int m_strideCount = 0;
     float m_xMinLimit;
     float m_xMaxLimit;
+    void updateMinMaxWithPoint(const QPointF &point);
 };
 
 #endif // DATA1D_H

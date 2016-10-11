@@ -127,11 +127,13 @@ ApplicationWindow {
             color: "white"
         }
 
-        Rectangle {
+        Item {
             id: selectionLeft
             x: 10
+            onXChanged: x = Math.max(x, 0)
+
             width: 10
-            color: "red"
+            // color: "red"
 
             anchors {
                 top: previewChart.top
@@ -145,11 +147,12 @@ ApplicationWindow {
             }
         }
 
-        Rectangle {
+        Item {
             id: selectionRight
             x: 30
+            onXChanged: x = Math.min(x, previewChart.width)
             width: 10
-            color: "red"
+            // color: "red"
 
             anchors {
                 top: previewChart.top
@@ -166,7 +169,7 @@ ApplicationWindow {
         Rectangle {
             id: zoomRectangle
             property real xMin: previewAxisX.min + x / previewChart.width * (previewAxisX.max - previewAxisX.min)
-            property real xMax: (x+width) > 0.95*previewChart.width ? previewAxisX.max : (previewAxisX.min + (x+width) / previewChart.width * (previewAxisX.max - previewAxisX.min))
+            property real xMax: (x+width) > 0.95*previewChart.width ? data.xMax : (previewAxisX.min + (x+width) / previewChart.width * (previewAxisX.max - previewAxisX.min))
             onXMinChanged: console.log("xlim: [", xMin, ", ", xMax, "]")
             onXMaxChanged: console.log("xlim: [", xMin, ", ", xMax, "]")
             radius: 10
