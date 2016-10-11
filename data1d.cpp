@@ -163,10 +163,17 @@ void Data1D::add(float x, float y, bool silent)
 void Data1D::add(const QPointF &point, bool silent)
 {
     if(m_parentData) {
-        if(++m_strideCount >= m_stride) {
-            // We should add this point and reset stride count
+        if(++m_strideCount >= m_stride || m_points.size()==0) {
+            // We should add this point and reset stride count if first point
             m_strideCount = 0;
-        } else return;
+        } else {
+            m_points.replace(m_points.size()-1, point);
+            m_dataDirty = true;
+            if(!silent) {
+                doEmitUpdated(true);
+            }
+            return;
+        }
     }
 
     m_points.append(point);
