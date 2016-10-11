@@ -98,8 +98,6 @@ ApplicationWindow {
             bottom: parent.bottom
         }
 
-
-
         theme: ChartView.ChartThemeDark
         height: root.height * 0.8
         antialiasing: true
@@ -124,53 +122,63 @@ ApplicationWindow {
             visible: false
             color: "white"
         }
-    }
 
-    Item {
-        id: selectionLeft
-        x: 40
-        width: 10
-        anchors {
-            top: previewChart.top
-            bottom: previewChart.bottom
-        }
-        MouseArea {
-            anchors.fill: parent
-            cursorShape: Qt.SizeHorCursor
-            drag.target: parent
-        }
-    }
+        Rectangle {
+            id: selectionLeft
+            x: 40
+            width: 10
+            color: "red"
+            onXChanged: x = Math.max(x, 10)
 
-    Item {
-        id: selectionRight
-        x: 80
-        width: 10
-        anchors {
-            top: previewChart.top
-            bottom: previewChart.bottom
+            anchors {
+                top: previewChart.top
+                bottom: previewChart.bottom
+            }
+
+            MouseArea {
+                anchors.fill: parent
+                cursorShape: Qt.SizeHorCursor
+                drag.target: parent
+            }
         }
 
-        MouseArea {
-            anchors.fill: parent
-            cursorShape: Qt.SizeHorCursor
-            drag.target: parent
-        }
-    }
+        Rectangle {
+            id: selectionRight
+            x: 80
+            width: 10
+            color: "red"
+            onXChanged: {
+                x = Math.min(x, previewChart.width-20)
+                console.log("X: ", x, " previewChart.width: ", previewChart.width)
+            }
 
-    Rectangle {
-        id: zoomRectangle
-        property real xMin: previewAxisX.min + x / previewChart.width * (previewAxisX.max - previewAxisX.min)
-        property real xMax: (x+width) > 0.95*previewChart.width ? previewAxisX.max : (previewAxisX.min + (x+width) / previewChart.width * (previewAxisX.max - previewAxisX.min))
-        onXMinChanged: console.log("xlim: [", xMin, ", ", xMax, "]")
-        onXMaxChanged: console.log("xlim: [", xMin, ", ", xMax, "]")
-        radius: 10
-        anchors {
-            top: previewChart.top
-            bottom: previewChart.bottom
-            left: selectionLeft.right
-            right: selectionRight.left
+            anchors {
+                top: previewChart.top
+                bottom: previewChart.bottom
+            }
+
+            MouseArea {
+                anchors.fill: parent
+                cursorShape: Qt.SizeHorCursor
+                drag.target: parent
+            }
         }
 
-        color: Qt.rgba(1.0, 1.0, 1.0, 0.3)
+        Rectangle {
+            id: zoomRectangle
+            property real xMin: previewAxisX.min + x / previewChart.width * (previewAxisX.max - previewAxisX.min)
+            property real xMax: (x+width) > 0.95*previewChart.width ? previewAxisX.max : (previewAxisX.min + (x+width) / previewChart.width * (previewAxisX.max - previewAxisX.min))
+            onXMinChanged: console.log("xlim: [", xMin, ", ", xMax, "]")
+            onXMaxChanged: console.log("xlim: [", xMin, ", ", xMax, "]")
+            radius: 10
+            anchors {
+                top: previewChart.top
+                bottom: previewChart.bottom
+                left: selectionLeft.right
+                right: selectionRight.left
+            }
+
+            color: Qt.rgba(1.0, 1.0, 1.0, 0.3)
+        }
     }
 }
