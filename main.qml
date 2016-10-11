@@ -102,6 +102,10 @@ ApplicationWindow {
         height: root.height * 0.8
         antialiasing: true
         legend.visible: false
+        onWidthChanged: {
+            selectionLeft.x = width*selectionLeft.percentagePosition
+            selectionRight.x = width*selectionRight.percentagePosition
+        }
 
         ValueAxis {
             id: previewAxisX
@@ -125,10 +129,9 @@ ApplicationWindow {
 
         Rectangle {
             id: selectionLeft
-            x: 40
+            x: 10
             width: 10
             color: "red"
-            onXChanged: x = Math.max(x, 10)
 
             anchors {
                 top: previewChart.top
@@ -144,13 +147,9 @@ ApplicationWindow {
 
         Rectangle {
             id: selectionRight
-            x: 80
+            x: 30
             width: 10
             color: "red"
-            onXChanged: {
-                x = Math.min(x, previewChart.width-20)
-                console.log("X: ", x, " previewChart.width: ", previewChart.width)
-            }
 
             anchors {
                 top: previewChart.top
