@@ -31,19 +31,23 @@ ApplicationWindow {
     }
 
     function updateZoomRectangle() {
-        var rightPos = previewChart.mapToPosition(Qt.point(axisX.max, 0), previewSeries).x
-        var leftPos = previewChart.mapToPosition(Qt.point(axisX.min, 0), previewSeries).x
-        console.log("xmin: ", axisX.min, " xmax: ", axisX.max, " leftpos: ", leftPos, " rightpos: ", rightPos)
-        console.log("left: ", previewChart.mapToPosition(Qt.point(axisX.min, 0), previewSeries))
-        console.log("right: ", previewChart.mapToPosition(Qt.point(axisX.max, 10), previewSeries))
+        var leftPos = previewChart.mapToPosition(Qt.point(zoomData.xMin, 0), previewSeries).x
+        var rightPos = previewChart.mapToPosition(Qt.point(zoomData.xMax, 0), previewSeries).x
+        console.log("Snapped to right: ", zoomRectangle.snappedToRight)
+        console.log("Setting left = ", leftPos, " since xMin = ", zoomData.xMin)
+
         zoomRectangle.x = leftPos
-        zoomRectangle.width = rightPos-leftPos
+        if(zoomRectangle.snappedToRight) {
+            zoomRectangle.width = zoomRectangle.parent.width-leftPos
+        } else {
+            zoomRectangle.width = rightPos-leftPos
+        }
     }
 
     function updatePreview() {
         previewData.updateData(root.previewSeries)
-
         if(handleAreaRight.drag.active || handleAreaLeft.drag.active) return;
+
         previewData.updateLimits()
         updateZoomRectangle()
         if(previewData.xMax > previewAxisX.max) {
@@ -55,7 +59,6 @@ ApplicationWindow {
         zoomData.updateData(root.zoomSeries)
         zoomData.updateLimits()
         updateZoomRectangle()
-        console.log("Previx xmin: ", previewData.xMin)
     }
 
     Timer {
@@ -89,10 +92,8 @@ ApplicationWindow {
         ValueAxis {
             id: axisX
             tickCount: 3
-            min: zoomData.xMinLimit
-            max: zoomData.xMaxLimit
-            onMaxChanged: updateZoomRectangle()
-            onMinChanged: updateZoomRectangle()
+            min: zoomData.xMin
+            max: zoomData.xMax
             titleText: "y"
             color: "white"
             labelsColor: "black"
@@ -170,6 +171,7 @@ ApplicationWindow {
             id: selectionLeft
             anchors.horizontalCenter: zoomRectangle.left
             onXChanged: {
+                console.log("x: ", x)
                 if(handleAreaLeft.drag.active) {
                     zoomData.xMinLimit = previewChart.mapToValue(Qt.point(x, 0), previewSeries).x
                 }
@@ -208,8 +210,16 @@ ApplicationWindow {
             id: selectionRight
             anchors.horizontalCenter: zoomRectangle.right
             onXChanged: {
+                if(!previewData) return;
                 if(handleAreaRight.drag.active) {
-                    zoomData.xMaxLimit = previewChart.mapToValue(Qt.point(x, 0), previewSeries).x
+                    zoomRectangle.snappedToRight = previewChart.mapToValue(Qt.point(x, 0), previewSeries).x >= previewData.xMax
+                    if(zoomRectangle.snappedToRight) {
+                        zoomData.xMaxLimit = Infinity
+                    } else {
+                        zoomData.xMaxLimit = previewChart.mapToValue(Qt.point(x, 0), previewSeries).x
+                        console.log("zoomData.xMaxLimit: ", zoomData.xMaxLimit)
+                        console.log("zoomdata.xmax", zoomData.xMax)
+                    }
                 }
             }
 
@@ -244,12 +254,18 @@ ApplicationWindow {
 
         Rectangle {
             id: zoomRectangle
+            property bool snappedToRight: true
+            onXChanged: {
+                console.log("Changed x to ", x)
+            }
 
             radius: 2
             anchors {
                 top: parent.top
                 bottom: parent.bottom
+                right: snappedToRight ? previewRectangle.right : undefined
             }
+
 
             color: Qt.rgba(1.0, 1.0, 1.0, 0.3)
         }

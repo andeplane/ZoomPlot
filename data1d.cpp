@@ -1,11 +1,13 @@
 #include "data1d.h"
 #include <QLineSeries>
 #include <limits>
+#include <QDebug>
+
 Data1D::Data1D(QObject *parent) : QObject(parent)
 {
     static_assert(std::numeric_limits<float>::is_iec559, "IEEE 754 required"); // -INFINITY and INFINITY supported
     m_xMinLimit = -std::numeric_limits<float>::infinity();
-    m_xMaxLimit = -std::numeric_limits<float>::infinity();
+    m_xMaxLimit = std::numeric_limits<float>::infinity();
 }
 
 float Data1D::xMin()
@@ -36,10 +38,13 @@ void Data1D::updateLimits()
 {
     if(!m_minMaxValuesDirty) return;
     if(m_points.size() == 0) {
-        m_xMax = 0;
-        m_xMin = 0;
-        m_yMax = 0;
-        m_yMin = 0;
+        m_minMaxValuesDirty = false;
+
+        m_xMax = m_xMaxLimit;
+        emit xMaxChanged(m_xMax);
+        m_xMin = m_xMinLimit;
+        emit xMinChanged(m_xMin);
+
         return;
     }
 
@@ -144,6 +149,7 @@ bool Data1D::enabled() const
 void Data1D::clear(bool silent)
 {
     m_dataDirty = true;
+    m_minMaxValuesDirty = true;
     m_points.clear();
     m_strideCount = 0;
     for(QVariant &variant : m_subsets) {
@@ -162,6 +168,8 @@ void Data1D::add(float x, float y, bool silent)
 
 void Data1D::add(const QPointF &point, bool silent)
 {
+    if(point.x() < m_xMinLimit || point.x() > m_xMaxLimit) return;
+
     if(m_parentData) {
         if(++m_strideCount >= m_stride || m_points.size()==0) {
             // We should add this point and reset stride count if first point
@@ -178,20 +186,23 @@ void Data1D::add(const QPointF &point, bool silent)
     }
 
     m_points.append(point);
-    m_minMaxValuesDirty = true;
     m_dataDirty = true;
+    m_minMaxValuesDirty = true;
+
+    if(!silent) {
+        doEmitUpdated(true);
+        updateMinMaxWithPoint(point);
+    }
+
     for(QVariant &variant : m_subsets) {
         Data1D *data = variant.value<Data1D*>();
         data->add(point, true);
     }
-
-    if(!silent) {
-        updateMinMaxWithPoint(point);
-        doEmitUpdated(true);
-    }
 }
 
 void Data1D::updateMinMaxWithPoint(const QPointF &point) {
+    m_minMaxValuesDirty = false;
+
     if(m_xMax < point.x()) {
         m_xMax = point.x();
         emit xMaxChanged(m_xMax);
