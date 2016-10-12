@@ -17,3 +17,5 @@ else: unix:!android: target.path = /opt/$${TARGET}/bin
 
 HEADERS += \
     data1d.h
+
+DISTFILES += qml/qtquickcontrols2.conf

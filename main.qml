@@ -18,7 +18,7 @@ ApplicationWindow {
         id: data
         Component.onCompleted: {
             addSubset("zoom", 1)
-            addSubset("preview", 10)
+            addSubset("preview", 1)
             zoomData = data.subsets["zoom"]
             zoomData.onUpdated.connect(updateZoom)
 
@@ -30,14 +30,32 @@ ApplicationWindow {
         }
     }
 
+    function updateZoomRectangle() {
+        var rightPos = previewChart.mapToPosition(Qt.point(axisX.max, 0), previewSeries).x
+        var leftPos = previewChart.mapToPosition(Qt.point(axisX.min, 0), previewSeries).x
+        console.log("xmin: ", axisX.min, " xmax: ", axisX.max, " leftpos: ", leftPos, " rightpos: ", rightPos)
+        console.log("left: ", previewChart.mapToPosition(Qt.point(axisX.min, 0), previewSeries))
+        console.log("right: ", previewChart.mapToPosition(Qt.point(axisX.max, 10), previewSeries))
+        zoomRectangle.x = leftPos
+        zoomRectangle.width = rightPos-leftPos
+    }
+
     function updatePreview() {
         previewData.updateData(root.previewSeries)
+
+        if(handleAreaRight.drag.active || handleAreaLeft.drag.active) return;
         previewData.updateLimits()
+        updateZoomRectangle()
+        if(previewData.xMax > previewAxisX.max) {
+            previewAxisX.max = previewAxisX.max * 2
+        }
     }
 
     function updateZoom() {
         zoomData.updateData(root.zoomSeries)
         zoomData.updateLimits()
+        updateZoomRectangle()
+        console.log("Previx xmin: ", previewData.xMin)
     }
 
     Timer {
@@ -71,8 +89,10 @@ ApplicationWindow {
         ValueAxis {
             id: axisX
             tickCount: 3
-            min: zoomRectangle.xMin
-            max: zoomRectangle.xMax
+            min: zoomData.xMinLimit
+            max: zoomData.xMaxLimit
+            onMaxChanged: updateZoomRectangle()
+            onMinChanged: updateZoomRectangle()
             titleText: "y"
             color: "white"
             labelsColor: "black"
@@ -87,97 +107,148 @@ ApplicationWindow {
             color: "white"
             labelsColor: "black"
         }
+
+        MouseArea {
+            anchors.fill: parent
+            hoverEnabled: true
+            onPositionChanged: {
+
+                // console.log("Mouse pos: ", Qt.point(mouse.x, mouse.y), " P: ", chart.mapToValue(Qt.point(mouse.x, mouse.y), zoomSeries))
+            }
+        }
     }
 
-    ChartView {
-        id: previewChart
+    Rectangle {
+        id: previewRectangle
         anchors {
-            left: parent.left
-            right: parent.right
+            left: chart.left
+            right: chart.right
             top: chart.bottom
             bottom: parent.bottom
         }
 
-        theme: ChartView.ChartThemeDark
-        height: root.height * 0.8
-        antialiasing: true
-        legend.visible: false
-        onWidthChanged: {
-            selectionLeft.x = width*selectionLeft.percentagePosition
-            selectionRight.x = width*selectionRight.percentagePosition
-        }
+        radius: 2
+        color: root.color
+        border.color: "white"
+        border.width: 2
 
-        ValueAxis {
-            id: previewAxisX
-            tickCount: 0
-            min: previewData.xMin
-            max: previewData.xMax
-            gridVisible: false
-            visible: false
-            color: "white"
-        }
-
-        ValueAxis {
-            id: previewAxisY
-            tickCount: 0
-            min: previewData.yMin
-            max: previewData.yMax
-            gridVisible: false
-            visible: false
-            color: "white"
-        }
-
-        Item {
-            id: selectionLeft
-            x: 10
-            onXChanged: x = Math.max(x, 0)
-
-            width: 10
-            // color: "red"
-
-            anchors {
-                top: previewChart.top
-                bottom: previewChart.bottom
+        ChartView {
+            id: previewChart
+            anchors.fill: parent
+            property real xRange: previewAxisX.max - previewAxisX.min
+            backgroundColor: root.color
+            theme: ChartView.ChartThemeDark
+            antialiasing: true
+            legend.visible: false
+            onWidthChanged: {
+                selectionLeft.x = width*selectionLeft.percentagePosition
+                selectionRight.x = width*selectionRight.percentagePosition
             }
 
-            MouseArea {
-                anchors.fill: parent
-                cursorShape: Qt.SizeHorCursor
-                drag.target: parent
-            }
-        }
-
-        Item {
-            id: selectionRight
-            x: 30
-            onXChanged: x = Math.min(x, previewChart.width)
-            width: 10
-            // color: "red"
-
-            anchors {
-                top: previewChart.top
-                bottom: previewChart.bottom
+            ValueAxis {
+                id: previewAxisX
+                tickCount: 0
+                min: 0
+                max: 1
+                gridVisible: false
+                visible: false
+                color: "white"
             }
 
-            MouseArea {
-                anchors.fill: parent
-                cursorShape: Qt.SizeHorCursor
-                drag.target: parent
+            ValueAxis {
+                id: previewAxisY
+                tickCount: 0
+                min: previewData.yMin
+                max: previewData.yMax
+                gridVisible: false
+                visible: false
+                color: "white"
             }
         }
 
         Rectangle {
-            id: zoomRectangle
-            property real xMin: previewAxisX.min + x / previewChart.width * (previewAxisX.max - previewAxisX.min)
-            property real xMax: (x+width) > 0.95*previewChart.width ? data.xMax : (previewAxisX.min + (x+width) / previewChart.width * (previewAxisX.max - previewAxisX.min))
-            onXMinChanged: console.log("xlim: [", xMin, ", ", xMax, "]")
-            onXMaxChanged: console.log("xlim: [", xMin, ", ", xMax, "]")
-            radius: 10
+            id: selectionLeft
+            anchors.horizontalCenter: zoomRectangle.left
+            onXChanged: {
+                if(handleAreaLeft.drag.active) {
+                    zoomData.xMinLimit = previewChart.mapToValue(Qt.point(x, 0), previewSeries).x
+                }
+            }
+
+            width: 10
+            color: "red"
+
             anchors {
-                top: previewChart.top
-                bottom: previewChart.bottom
-                left: selectionLeft.right
-                right: selectionRight.left
+                top: parent.top
+                bottom: parent.bottom
+            }
+
+            MouseArea {
+                id: handleAreaLeft
+                anchors.fill: parent
+                cursorShape: Qt.SizeHorCursor
+                drag.target: parent
+                drag.threshold: 0
+                drag.maximumX: selectionRight.x-20
+                drag.minimumX: 15
+            }
+
+            states: [
+                State {
+                    when: handleAreaLeft.drag.active
+                    AnchorChanges {
+                        target: selectionLeft
+                        anchors.horizontalCenter: undefined
+                    }
+                }
+            ]
+        }
+
+        Rectangle {
+            id: selectionRight
+            anchors.horizontalCenter: zoomRectangle.right
+            onXChanged: {
+                if(handleAreaRight.drag.active) {
+                    zoomData.xMaxLimit = previewChart.mapToValue(Qt.point(x, 0), previewSeries).x
+                }
+            }
+
+            width: 10
+            color: "red"
+
+            anchors {
+                top: parent.top
+                bottom: parent.bottom
+            }
+
+            MouseArea {
+                id: handleAreaRight
+                anchors.fill: parent
+                cursorShape: Qt.SizeHorCursor
+                drag.target: parent
+                drag.threshold: 0
+                drag.maximumX: previewChart.width-15
+                drag.minimumX: selectionLeft.x+20
+            }
+
+            states: [
+                State {
+                    when: handleAreaRight.drag.active
+                    AnchorChanges {
+                        target: selectionRight
+                        anchors.horizontalCenter: undefined
+                    }
+                }
+            ]
+        }
+
+        Rectangle {
+            id: zoomRectangle
+
+            radius: 2
+            anchors {
+                top: parent.top
+                bottom: parent.bottom
             }
 
             color: Qt.rgba(1.0, 1.0, 1.0, 0.3)

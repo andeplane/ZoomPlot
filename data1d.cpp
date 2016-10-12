@@ -101,7 +101,7 @@ float Data1D::xMaxLimit() const
     return m_xMaxLimit;
 }
 
-void Data1D::updateSubset(Data1D &subset)
+void Data1D::resampleSubset(Data1D &subset)
 {
     subset.clear(true);
     // TODO: use binary search to find index of starting point based on subset's xMinLimit
@@ -256,7 +256,7 @@ void Data1D::setXMinLimit(float xMinLimit)
 
     m_xMinLimit = xMinLimit;
     if(m_parentData) {
-        m_parentData->updateSubset(*this);
+        m_parentData->resampleSubset(*this);
     }
     emit xMinLimitChanged(xMinLimit);
 }
@@ -268,7 +268,7 @@ void Data1D::setXMaxLimit(float xMaxLimit)
 
     m_xMaxLimit = xMaxLimit;
     if(m_parentData) {
-        m_parentData->updateSubset(*this);
+        m_parentData->resampleSubset(*this);
     }
     emit xMaxLimitChanged(xMaxLimit);
 }

@@ -35,7 +35,7 @@ public:
     Data1D* parentData() const;
     float xMinLimit() const;
     float xMaxLimit() const;
-    void updateSubset(Data1D &subset);
+    void resampleSubset(Data1D &subset);
     void doEmitUpdated(bool children);
 
 signals:
