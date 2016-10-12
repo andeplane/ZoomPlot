@@ -33,8 +33,6 @@ ApplicationWindow {
     function updateZoomRectangle() {
         var leftPos = previewChart.mapToPosition(Qt.point(zoomData.xMin, 0), previewSeries).x
         var rightPos = previewChart.mapToPosition(Qt.point(zoomData.xMax, 0), previewSeries).x
-        console.log("Snapped to right: ", zoomRectangle.snappedToRight)
-        console.log("Setting left = ", leftPos, " since xMin = ", zoomData.xMin)
 
         zoomRectangle.x = leftPos
         if(zoomRectangle.snappedToRight) {
@@ -46,7 +44,7 @@ ApplicationWindow {
 
     function updatePreview() {
         previewData.updateData(root.previewSeries)
-        if(handleAreaRight.drag.active || handleAreaLeft.drag.active) return;
+        if(handleAreaRight.drag.active || handleAreaLeft.drag.active || mousemous.drag.active) return;
 
         previewData.updateLimits()
         updateZoomRectangle()
@@ -65,11 +63,10 @@ ApplicationWindow {
         property int count: 0
         running: true
         repeat: true
-        interval: 100
+        interval: 16
         onTriggered: {
             var x = count*0.1
             var y = Math.sin(x)
-            // var y = sin(x) + cos(x*x)*cos(x)
             data.add(x,y)
 
             count += 1
@@ -107,15 +104,6 @@ ApplicationWindow {
             titleText: "x"
             color: "white"
             labelsColor: "black"
-        }
-
-        MouseArea {
-            anchors.fill: parent
-            hoverEnabled: true
-            onPositionChanged: {
-
-                // console.log("Mouse pos: ", Qt.point(mouse.x, mouse.y), " P: ", chart.mapToValue(Qt.point(mouse.x, mouse.y), zoomSeries))
-            }
         }
     }
 
@@ -167,18 +155,62 @@ ApplicationWindow {
             }
         }
 
-        Rectangle {
+        Item {
+            id: rect
+            property real oldWidth: 0
+            anchors.horizontalCenter: zoomRectangle.horizontalCenter
+            anchors.verticalCenter: zoomRectangle.verticalCenter
+            width: zoomRectangle.width
+            height: zoomRectangle.height
+            onXChanged: {
+                if(!mousemous.drag.active) return
+
+                var newXMinLimit = previewChart.mapToValue(Qt.point(x, 0), previewSeries).x
+                var newXMaxLimit = previewChart.mapToValue(Qt.point(x+rect.oldWidth, 0), previewSeries).x
+                if(newXMaxLimit > data.xMax) {
+                    zoomRectangle.snappedToRight = true
+                } else {
+                    zoomRectangle.snappedToRight = false
+                }
+
+                zoomData.xMinLimit = newXMinLimit
+                zoomData.xMaxLimit = newXMaxLimit
+            }
+
+            MouseArea {
+                id: mousemous
+                anchors.fill: parent
+                drag.target: parent
+                drag.threshold: 0
+                onPressed: {
+                    if(!zoomRectangle.snappedToRight || rect.oldWidth===0) {
+                        rect.oldWidth = rect.width
+                    }
+                }
+            }
+
+            states: [
+                State {
+                    when: mousemous.drag.active
+                    AnchorChanges {
+                        target: rect
+                        anchors.horizontalCenter: undefined
+                        anchors.verticalCenter: undefined
+                    }
+                }
+            ]
+        }
+
+        Item {
             id: selectionLeft
+            width: 15
             anchors.horizontalCenter: zoomRectangle.left
             onXChanged: {
-                console.log("x: ", x)
                 if(handleAreaLeft.drag.active) {
                     zoomData.xMinLimit = previewChart.mapToValue(Qt.point(x, 0), previewSeries).x
                 }
             }
 
-            width: 10
-            color: "red"
 
             anchors {
                 top: parent.top
@@ -206,8 +238,10 @@ ApplicationWindow {
             ]
         }
 
-        Rectangle {
+        Item {
+            // color: "red"
             id: selectionRight
+            width: 15
             anchors.horizontalCenter: zoomRectangle.right
             onXChanged: {
                 if(!previewData) return;
@@ -217,14 +251,10 @@ ApplicationWindow {
                         zoomData.xMaxLimit = Infinity
                     } else {
                         zoomData.xMaxLimit = previewChart.mapToValue(Qt.point(x, 0), previewSeries).x
-                        console.log("zoomData.xMaxLimit: ", zoomData.xMaxLimit)
-                        console.log("zoomdata.xmax", zoomData.xMax)
                     }
                 }
             }
 
-            width: 10
-            color: "red"
 
             anchors {
                 top: parent.top
@@ -255,9 +285,7 @@ ApplicationWindow {
         Rectangle {
             id: zoomRectangle
             property bool snappedToRight: true
-            onXChanged: {
-                console.log("Changed x to ", x)
-            }
+            color: Qt.rgba(1.0, 1.0, 1.0, 0.3)
 
             radius: 2
             anchors {
@@ -265,9 +293,6 @@ ApplicationWindow {
                 bottom: parent.bottom
                 right: snappedToRight ? previewRectangle.right : undefined
             }
-
-
-            color: Qt.rgba(1.0, 1.0, 1.0, 0.3)
         }
     }
 }
