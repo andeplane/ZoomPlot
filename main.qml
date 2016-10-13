@@ -81,6 +81,7 @@ ApplicationWindow {
         }
         height: root.height*0.8
         theme: ChartView.ChartThemeDark
+        backgroundColor: root.color
         antialiasing: true
         legend.visible: true
         title: "A plot"
@@ -119,7 +120,7 @@ ApplicationWindow {
         radius: 2
         color: root.color
         border.color: "white"
-        border.width: 2
+        border.width: 0
 
         ChartView {
             id: previewChart
