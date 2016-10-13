@@ -44,7 +44,7 @@ ApplicationWindow {
 
     function updatePreview() {
         previewData.updateData(root.previewSeries)
-        if(handleAreaRight.drag.active || handleAreaLeft.drag.active || mousemous.drag.active) return;
+        if(handleAreaRight.drag.active || handleAreaLeft.drag.active || moveHandle.drag.active) return;
 
         previewData.updateLimits()
         updateZoomRectangle()
@@ -163,9 +163,8 @@ ApplicationWindow {
             width: zoomRectangle.width
             height: zoomRectangle.height
             onXChanged: {
-                if(!mousemous.drag.active) return
+                if(!moveHandle.drag.active) return
 
-                var newXMinLimit = previewChart.mapToValue(Qt.point(x, 0), previewSeries).x
                 var newXMaxLimit = previewChart.mapToValue(Qt.point(x+rect.oldWidth, 0), previewSeries).x
                 if(newXMaxLimit > data.xMax) {
                     zoomRectangle.snappedToRight = true
@@ -173,15 +172,23 @@ ApplicationWindow {
                     zoomRectangle.snappedToRight = false
                 }
 
-                zoomData.xMinLimit = newXMinLimit
-                zoomData.xMaxLimit = newXMaxLimit
+                if(zoomRectangle.snappedToRight) {
+                    zoomData.xMaxLimit = Infinity
+                } else {
+                    zoomData.xMaxLimit = newXMaxLimit
+                }
+                zoomData.xMinLimit = previewChart.mapToValue(Qt.point(x, 0), previewSeries).x
+
             }
 
             MouseArea {
-                id: mousemous
+                id: moveHandle
                 anchors.fill: parent
                 drag.target: parent
                 drag.threshold: 0
+                drag.minimumX: 15
+                drag.maximumX: previewChart.width-15
+
                 onPressed: {
                     if(!zoomRectangle.snappedToRight || rect.oldWidth===0) {
                         rect.oldWidth = rect.width
@@ -191,7 +198,7 @@ ApplicationWindow {
 
             states: [
                 State {
-                    when: mousemous.drag.active
+                    when: moveHandle.drag.active
                     AnchorChanges {
                         target: rect
                         anchors.horizontalCenter: undefined
@@ -199,6 +206,20 @@ ApplicationWindow {
                     }
                 }
             ]
+        }
+
+        Rectangle {
+            id: zoomRectangle
+            property bool snappedToRight: true
+            color: Qt.rgba(1.0, 1.0, 1.0, 0.3)
+
+            radius: 2
+            anchors {
+                top: parent.top
+                bottom: parent.bottom
+                right: snappedToRight ? previewRectangle.right : undefined
+                rightMargin: snappedToRight ? 15 : 0
+            }
         }
 
         Item {
@@ -211,7 +232,6 @@ ApplicationWindow {
                 }
             }
 
-
             anchors {
                 top: parent.top
                 bottom: parent.bottom
@@ -223,7 +243,7 @@ ApplicationWindow {
                 cursorShape: Qt.SizeHorCursor
                 drag.target: parent
                 drag.threshold: 0
-                drag.maximumX: selectionRight.x-20
+                drag.maximumX: selectionRight.x-50
                 drag.minimumX: 15
             }
 
@@ -239,9 +259,8 @@ ApplicationWindow {
         }
 
         Item {
-            // color: "red"
             id: selectionRight
-            width: 15
+            width: zoomRectangle.snappedToRight ? 30 : 15
             anchors.horizontalCenter: zoomRectangle.right
             onXChanged: {
                 if(!previewData) return;
@@ -268,7 +287,7 @@ ApplicationWindow {
                 drag.target: parent
                 drag.threshold: 0
                 drag.maximumX: previewChart.width-15
-                drag.minimumX: selectionLeft.x+20
+                drag.minimumX: selectionLeft.x+50
             }
 
             states: [
@@ -280,19 +299,6 @@ ApplicationWindow {
                     }
                 }
             ]
-        }
-
-        Rectangle {
-            id: zoomRectangle
-            property bool snappedToRight: true
-            color: Qt.rgba(1.0, 1.0, 1.0, 0.3)
-
-            radius: 2
-            anchors {
-                top: parent.top
-                bottom: parent.bottom
-                right: snappedToRight ? previewRectangle.right : undefined
-            }
         }
     }
 }
