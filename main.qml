@@ -18,9 +18,29 @@ ApplicationWindow {
         onTriggered: {
             var x = count*0.1
             var y = Math.sin(x)
-            plot.dataSource.add(x,y)
+            data1.add(x,y)
+            y = Math.cos(x)
+            data2.add(x,y)
 
             count += 1
+        }
+    }
+
+    Data1D {
+        id: data1
+        key: "myData1"
+        Component.onCompleted: {
+            addSubset("zoom", 1)
+            addSubset("preview", 1)
+        }
+    }
+
+    Data1D {
+        id: data2
+        key: "myData2"
+        Component.onCompleted: {
+            addSubset("zoom", 1)
+            addSubset("preview", 1)
         }
     }
 
@@ -28,5 +48,13 @@ ApplicationWindow {
         id: plot
         color: root.color
         anchors.fill: parent
+    }
+
+    Button {
+        text: "Add plots"
+
+        onClicked: {
+            plot.dataSources = {"myData1": data1, "myData2": data2 }
+        }
     }
 }

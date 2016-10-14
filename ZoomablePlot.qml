@@ -6,31 +6,100 @@ import Data1D 1.0
 
 Rectangle {
     id: root
-    property var zoomSeries
-    property var previewSeries
-    property var zoomData
-    property var previewData
-    property alias dataSource: data
+    property var dataSources: []
+    onDataSourcesChanged: updateSeries("line")
 
-    Data1D {
-        id: data
-        Component.onCompleted: {
-            addSubset("zoom", 1)
-            addSubset("preview", 1)
-            zoomData = data.subsets["zoom"]
-            zoomData.onUpdated.connect(updateZoom)
+    function updateSeries(type) {
+        zoomChart.removeAllSeries();
+        previewChart.removeAllSeries();
 
-            previewData = data.subsets["preview"]
-            previewData.onUpdated.connect(updatePreview)
+        d.zoomSeries = ({})
+        d.previewSeries = ({})
+        d.zoomData = ({})
+        d.previewData = ({})
+        if (type === "line") {
+            var i = 0
+            for(var key in dataSources) {
+                console.log("Adding plots for key ", key)
+                var dataSource = dataSources[key]
+                var zoomData = dataSource.subsets["zoom"]
+                var previewData = dataSource.subsets["preview"]
 
-            root.zoomSeries = chart.createSeries(ChartView.SeriesTypeLine, "series", axisX, axisY);
-            root.previewSeries = previewChart.createSeries(ChartView.SeriesTypeLine, "series", previewAxisX, previewAxisY);
+                console.log("Got zoomData: ", zoomData)
+                console.log("Got previewData: ", previewData)
+
+                zoomData.onUpdated.connect( function() { updateZoom(zoomData.key) } )
+                previewData.onUpdated.connect( function() { updatePreview(previewData.key) } )
+
+                d.zoomData[key] = zoomData
+                d.previewData[key] = previewData
+
+                var series = zoomChart.createSeries(ChartView.SeriesTypeLine, key, axisX, axisY);
+                d.zoomSeries[key] = series
+
+                series = previewChart.createSeries(ChartView.SeriesTypeLine, key, previewAxisX, previewAxisY);
+                d.previewSeries[key] = series
+                i += 1
+            }
+        }
+    }
+
+    QtObject {
+        id: d
+        property real xMin: 0
+        property real xMax: 1
+        property real yMin: 0
+        property real yMax: 1
+        property real previewXMin: 0
+        property real previewXMax: 1
+        property real previewYMin: 0
+        property real previewYMax: 1
+
+        property var zoomSeries: ({})
+        property var previewSeries: ({})
+        property var zoomData: ({})
+        property var previewData: ({})
+
+        function updatePreviewLimits() {
+            if(previewData.length === 0) return
+            var first = true
+            for(var key in zoomData) {
+                if(first) {
+                    previewXMin = previewData[key].xMin
+                    previewXMax = previewData[key].xMax
+                    previewYMin = previewData[key].yMin
+                    previewYMax = previewData[key].yMax
+                }
+
+                previewXMin = Math.min(previewXMin, previewData[key].xMin)
+                previewXMax = Math.max(previewXMax, previewData[key].xMax)
+                previewYMin = Math.min(previewYMin, previewData[key].yMin)
+                previewYMax = Math.max(previewYMax, previewData[key].yMax)
+            }
+        }
+
+        function updateZoomLimits() {
+            if(zoomData.length === 0) return
+            var first = true
+            for(var key in zoomData) {
+                if(first) {
+                    xMin = zoomData[key].xMin
+                    xMax = zoomData[key].xMax
+                    yMin = zoomData[key].yMin
+                    yMax = zoomData[key].yMax
+                }
+
+                xMin = Math.min(xMin, zoomData[key].xMin)
+                xMax = Math.max(xMax, zoomData[key].xMax)
+                yMin = Math.min(yMin, zoomData[key].yMin)
+                yMax = Math.max(yMax, zoomData[key].yMax)
+            }
         }
     }
 
     function updateZoomRectangle() {
-        var leftPos = previewChart.mapToPosition(Qt.point(zoomData.xMin, 0), previewSeries).x
-        var rightPos = previewChart.mapToPosition(Qt.point(zoomData.xMax, 0), previewSeries).x
+        var leftPos = previewChart.mapToPosition(Qt.point(d.xMin, 0), d.previewSeries[0]).x
+        var rightPos = previewChart.mapToPosition(Qt.point(d.xMax, 0), d.previewSeries[0]).x
 
         zoomRectangle.x = leftPos
         if(zoomRectangle.snappedToRight) {
@@ -40,25 +109,28 @@ Rectangle {
         }
     }
 
-    function updatePreview() {
-        previewData.updateData(root.previewSeries)
+    function updatePreview(key) {
+        if(d === undefined) return
+        d.previewData[key].updateData(d.previewSeries[key])
         if(handleAreaRight.drag.active || handleAreaLeft.drag.active || moveHandle.drag.active) return;
 
-        previewData.updateLimits()
+        d.previewData[key].updateLimits()
+        d.updatePreviewLimits()
         updateZoomRectangle()
-        if(previewData.xMax > previewAxisX.max) {
+        if(d.previewXMax > previewAxisX.max) {
             previewAxisX.max = previewAxisX.max * 2
         }
     }
 
-    function updateZoom() {
-        zoomData.updateData(root.zoomSeries)
-        zoomData.updateLimits()
+    function updateZoom(key) {
+        d.zoomData[key].updateData(d.zoomSeries[key])
+        d.zoomData[key].updateLimits()
+        d.updateZoomLimits()
         updateZoomRectangle()
     }
 
     ChartView {
-        id: chart
+        id: zoomChart
         anchors {
             left: parent.left
             right: parent.right
@@ -74,8 +146,8 @@ Rectangle {
         ValueAxis {
             id: axisX
             tickCount: 3
-            min: zoomData.xMin
-            max: zoomData.xMax
+            min: d.xMin
+            max: d.xMax
             titleText: "y"
             color: "white"
             labelsColor: "black"
@@ -84,8 +156,8 @@ Rectangle {
         ValueAxis {
             id: axisY
             tickCount: 3
-            min: zoomData.yMin
-            max: zoomData.yMax
+            min: d.yMin
+            max: d.yMax
             titleText: "x"
             color: "white"
             labelsColor: "black"
@@ -95,9 +167,9 @@ Rectangle {
     Rectangle {
         id: previewRectangle
         anchors {
-            left: chart.left
-            right: chart.right
-            top: chart.bottom
+            left: zoomChart.left
+            right: zoomChart.right
+            top: zoomChart.bottom
             bottom: parent.bottom
         }
 
@@ -132,8 +204,8 @@ Rectangle {
             ValueAxis {
                 id: previewAxisY
                 tickCount: 0
-                min: previewData.yMin
-                max: previewData.yMax
+                min: d.previewYMin
+                max: d.previewYMax
                 gridVisible: false
                 visible: false
                 color: "white"
@@ -150,19 +222,21 @@ Rectangle {
             onXChanged: {
                 if(!moveHandle.drag.active) return
 
-                var newXMaxLimit = previewChart.mapToValue(Qt.point(x+rect.oldWidth, 0), previewSeries).x
-                if(newXMaxLimit > data.xMax) {
+                var newXMaxLimit = previewChart.mapToValue(Qt.point(x+rect.oldWidth, 0), d.previewSeries[0]).x
+                if(newXMaxLimit > d.previewXMax) {
                     zoomRectangle.snappedToRight = true
                 } else {
                     zoomRectangle.snappedToRight = false
                 }
 
-                if(zoomRectangle.snappedToRight) {
-                    zoomData.xMaxLimit = Infinity
-                } else {
-                    zoomData.xMaxLimit = newXMaxLimit
+                for(var key in d.zoomData) {
+                    if(zoomRectangle.snappedToRight) {
+                        d.zoomData[key].xMaxLimit = Infinity
+                    } else {
+                        d.zoomData[key].xMaxLimit = newXMaxLimit
+                    }
+                    d.zoomData[key].xMinLimit = previewChart.mapToValue(Qt.point(x, 0), d.previewSeries[0]).x
                 }
-                zoomData.xMinLimit = previewChart.mapToValue(Qt.point(x, 0), previewSeries).x
 
             }
 
@@ -213,7 +287,7 @@ Rectangle {
             anchors.horizontalCenter: zoomRectangle.left
             onXChanged: {
                 if(handleAreaLeft.drag.active) {
-                    zoomData.xMinLimit = previewChart.mapToValue(Qt.point(x, 0), previewSeries).x
+                    d.zoomData[0].xMinLimit = previewChart.mapToValue(Qt.point(x, 0), d.previewSeries[0]).x
                 }
             }
 
@@ -248,13 +322,15 @@ Rectangle {
             width: zoomRectangle.snappedToRight ? 30 : 15
             anchors.horizontalCenter: zoomRectangle.right
             onXChanged: {
-                if(!previewData) return;
+                if(d.previewData.length===0) return;
                 if(handleAreaRight.drag.active) {
-                    zoomRectangle.snappedToRight = previewChart.mapToValue(Qt.point(x, 0), previewSeries).x >= previewData.xMax
-                    if(zoomRectangle.snappedToRight) {
-                        zoomData.xMaxLimit = Infinity
-                    } else {
-                        zoomData.xMaxLimit = previewChart.mapToValue(Qt.point(x, 0), previewSeries).x
+                    zoomRectangle.snappedToRight = previewChart.mapToValue(Qt.point(x, 0), d.previewSeries[0]).x >= d.previewXMax
+                    for(var key in d.zoomData) {
+                        if(zoomRectangle.snappedToRight) {
+                            d.zoomData[key].xMaxLimit = Infinity
+                        } else {
+                            d.zoomData[key].xMaxLimit = previewChart.mapToValue(Qt.point(x, 0), d.previewSeries[0]).x
+                        }
                     }
                 }
             }

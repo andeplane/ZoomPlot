@@ -7,6 +7,7 @@ using namespace QtCharts;
 class Data1D : public QObject
 {
     Q_OBJECT
+    Q_PROPERTY(QString key READ key WRITE setKey NOTIFY keyChanged)
     Q_PROPERTY(bool enabled READ enabled WRITE setEnabled NOTIFY enabledChanged)
     Q_PROPERTY(float xMinLimit READ xMinLimit WRITE setXMinLimit NOTIFY xMinLimitChanged)
     Q_PROPERTY(float xMaxLimit READ xMaxLimit WRITE setXMaxLimit NOTIFY xMaxLimitChanged)
@@ -30,6 +31,7 @@ public:
     float yMin();
     float yMax();
     bool enabled() const;
+    QString key() const;
     QVariantMap subsets() const;
     int stride() const;
     Data1D* parentData() const;
@@ -50,6 +52,7 @@ signals:
     void parentDataChanged(Data1D* parentData);
     void xMinLimitChanged(float xMinLimit);
     void xMaxLimitChanged(float xMaxLimit);
+    void keyChanged(QString key);
 
 public slots:
     void setEnabled(bool enabled);
@@ -58,6 +61,7 @@ public slots:
     void setParentData(Data1D* parentData);
     void setXMinLimit(float xMinLimit);
     void setXMaxLimit(float xMaxLimit);
+    void setKey(QString key);
 
 private:
     Data1D* m_parentData = nullptr;
@@ -75,6 +79,7 @@ private:
     float m_xMinLimit;
     float m_xMaxLimit;
     void updateMinMaxWithPoint(const QPointF &point);
+    QString m_key;
 };
 
 #endif // DATA1D_H

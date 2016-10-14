@@ -131,9 +131,15 @@ void Data1D::doEmitUpdated(bool children)
     }
 }
 
+QString Data1D::key() const
+{
+    return m_key;
+}
+
 void Data1D::addSubset(QString key, int stride, float xMinLimit, float xMaxLimit)
 {
     Data1D *data = new Data1D(this);
+    data->setKey(this->key()); // Not the subset key, but the main key
     data->setStride(stride);
     data->setXMinLimit(xMinLimit);
     data->setXMaxLimit(xMaxLimit);
@@ -282,5 +288,14 @@ void Data1D::setXMaxLimit(float xMaxLimit)
         m_parentData->resampleSubset(*this);
     }
     emit xMaxLimitChanged(xMaxLimit);
+}
+
+void Data1D::setKey(QString key)
+{
+    if (m_key == key)
+        return;
+
+    m_key = key;
+    emit keyChanged(key);
 }
 
