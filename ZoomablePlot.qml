@@ -35,10 +35,12 @@ Rectangle {
                 d.previewData[i] = previewData
 
                 var series = zoomChart.createSeries(ChartView.SeriesTypeLine, key, axisX, axisY);
+                series.useOpenGL = true
                 d.zoomSeries[i] = series
                 zoomData.setXySeries(series)
 
                 series = previewChart.createSeries(ChartView.SeriesTypeLine, key, previewAxisX, previewAxisY);
+                series.useOpenGL = true
                 d.previewSeries[i] = series
                 previewData.setXySeries(series)
 
@@ -245,12 +247,12 @@ Rectangle {
                 }
 
                 if(zoomRectangle.snappedToRight) {
-                    d.xMaxLimit = Infinity
+                    d.xMaxLimit = d.xMax
                 } else {
                     d.xMaxLimit  = newXMaxLimit
                 }
                 d.xMinLimit = previewChart.mapToValue(Qt.point(x, 0), d.previewSeries[0]).x
-
+                updateZoom()
             }
 
             MouseArea {
@@ -302,6 +304,7 @@ Rectangle {
                 if(handleAreaLeft.drag.active) {
                     var newXMin = previewChart.mapToValue(Qt.point(x, 0), d.previewSeries[0]).x
                     d.xMinLimit = newXMin
+                    updateZoom()
                 }
             }
 
@@ -344,6 +347,7 @@ Rectangle {
                     } else {
                         d.xMaxLimit = previewChart.mapToValue(Qt.point(x, 0), d.previewSeries[0]).x
                     }
+                    updateZoom()
                 }
             }
 
