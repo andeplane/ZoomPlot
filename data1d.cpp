@@ -73,14 +73,6 @@ void Data1D::updateLimits()
     emit yMinChanged(m_yMin);
 }
 
-void Data1D::updateData(QAbstractSeries *series)
-{
-    if(series) {
-        QXYSeries *xySeries = static_cast<QXYSeries*>(series);
-        xySeries->replace(m_points);
-    }
-}
-
 QVariantMap Data1D::subsets() const
 {
     return m_subsets;
@@ -108,6 +100,9 @@ float Data1D::xMaxLimit() const
 
 void Data1D::resampleSubset(Data1D &subset)
 {
+    QElapsedTimer t;
+    t.start();
+
     subset.clear(true);
     // TODO: use binary search to find index of starting point based on subset's xMinLimit
 
@@ -120,7 +115,10 @@ void Data1D::resampleSubset(Data1D &subset)
 void Data1D::doEmitUpdated(bool children)
 {
     if(m_dataDirty) {
-        emit updated();
+        if(m_xySeries) {
+            m_xySeries->replace(m_points);
+        }
+        emit updated(this);
         m_dataDirty = false;
     }
     if(children) {
@@ -131,15 +129,14 @@ void Data1D::doEmitUpdated(bool children)
     }
 }
 
-QString Data1D::key() const
+QXYSeries *Data1D::xySeries() const
 {
-    return m_key;
+    return m_xySeries;
 }
 
 void Data1D::addSubset(QString key, int stride, float xMinLimit, float xMaxLimit)
 {
     Data1D *data = new Data1D(this);
-    data->setKey(this->key()); // Not the subset key, but the main key
     data->setStride(stride);
     data->setXMinLimit(xMinLimit);
     data->setXMaxLimit(xMaxLimit);
@@ -290,12 +287,11 @@ void Data1D::setXMaxLimit(float xMaxLimit)
     emit xMaxLimitChanged(xMaxLimit);
 }
 
-void Data1D::setKey(QString key)
+void Data1D::setXySeries(QXYSeries *xySeries)
 {
-    if (m_key == key)
+    if (m_xySeries == xySeries)
         return;
 
-    m_key = key;
-    emit keyChanged(key);
+    m_xySeries = xySeries;
+    emit xySeriesChanged(xySeries);
 }
-

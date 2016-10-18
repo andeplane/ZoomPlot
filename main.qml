@@ -6,29 +6,30 @@ import Data1D 1.0
 
 ApplicationWindow {
     id: root
+    property int count: 0
     visible: true
     width: 640
     height: 480
 
     Timer {
-        property int count: 0
-        running: true
+        id: timer
+        running: false
         repeat: true
         interval: 16
-        onTriggered: {
-            var x = count*0.1
-            var y = Math.sin(x)
-            data1.add(x,y)
-            y = Math.cos(x)
-            data2.add(x,y)
+        onTriggered: addPoint()
+    }
 
-            count += 1
-        }
+    function addPoint() {
+        var x = root.count*0.1
+        var y = Math.sin(x)
+        data1.add(x,y)
+        y = Math.cos(x)
+        data2.add(x,y)
+        root.count += 1
     }
 
     Data1D {
         id: data1
-        key: "myData1"
         Component.onCompleted: {
             addSubset("zoom", 1)
             addSubset("preview", 1)
@@ -37,7 +38,6 @@ ApplicationWindow {
 
     Data1D {
         id: data2
-        key: "myData2"
         Component.onCompleted: {
             addSubset("zoom", 1)
             addSubset("preview", 1)
@@ -50,11 +50,26 @@ ApplicationWindow {
         anchors.fill: parent
     }
 
-    Button {
-        text: "Add plots"
+    Row {
+        Button {
+            text: "Add plots"
 
-        onClicked: {
-            plot.dataSources = {"myData1": data1, "myData2": data2 }
+            onClicked: {
+                plot.dataSources = {"myData1": data1, "myData2": data2 }
+            }
+        }
+
+        Button {
+            text: "Add point"
+            onClicked: addPoint()
+        }
+
+        Button {
+            text: timer.running ? "Stop timer" : "Start timer"
+            onClicked: {
+                if(timer.running) timer.stop()
+                else timer.start()
+            }
         }
     }
 }

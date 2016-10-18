@@ -17,28 +17,29 @@ Rectangle {
         d.previewSeries = ({})
         d.zoomData = ({})
         d.previewData = ({})
+
         if (type === "line") {
             var i = 0
             for(var key in dataSources) {
-                console.log("Adding plots for key ", key)
                 var dataSource = dataSources[key]
                 var zoomData = dataSource.subsets["zoom"]
                 var previewData = dataSource.subsets["preview"]
 
-                console.log("Got zoomData: ", zoomData)
-                console.log("Got previewData: ", previewData)
-
-                zoomData.onUpdated.connect( function() { updateZoom(zoomData.key) } )
-                previewData.onUpdated.connect( function() { updatePreview(previewData.key) } )
-
-                d.zoomData[key] = zoomData
-                d.previewData[key] = previewData
+                d.zoomData[i] = zoomData
+                d.previewData[i] = previewData
 
                 var series = zoomChart.createSeries(ChartView.SeriesTypeLine, key, axisX, axisY);
-                d.zoomSeries[key] = series
+                d.zoomSeries[i] = series
+                zoomData.setXySeries(series)
 
                 series = previewChart.createSeries(ChartView.SeriesTypeLine, key, previewAxisX, previewAxisY);
-                d.previewSeries[key] = series
+                series.useOpenGL=true
+                d.previewSeries[i] = series
+                previewData.setXySeries(series)
+
+                zoomData.onUpdated.connect( function() { updateZoom() } )
+                previewData.onUpdated.connect( function() { updatePreview() } )
+
                 i += 1
             }
         }
@@ -87,6 +88,7 @@ Rectangle {
                     xMax = zoomData[key].xMax
                     yMin = zoomData[key].yMin
                     yMax = zoomData[key].yMax
+                    first = false
                 }
 
                 xMin = Math.min(xMin, zoomData[key].xMin)
@@ -109,22 +111,24 @@ Rectangle {
         }
     }
 
-    function updatePreview(key) {
-        if(d === undefined) return
-        d.previewData[key].updateData(d.previewSeries[key])
+    function updatePreview() {
         if(handleAreaRight.drag.active || handleAreaLeft.drag.active || moveHandle.drag.active) return;
 
-        d.previewData[key].updateLimits()
+        for(var key in d.previewData) {
+            d.previewData[key].updateLimits()
+        }
         d.updatePreviewLimits()
         updateZoomRectangle()
+
         if(d.previewXMax > previewAxisX.max) {
             previewAxisX.max = previewAxisX.max * 2
         }
     }
 
-    function updateZoom(key) {
-        d.zoomData[key].updateData(d.zoomSeries[key])
-        d.zoomData[key].updateLimits()
+    function updateZoom() {
+        for(var key in d.zoomData) {
+            d.zoomData[key].updateLimits()
+        }
         d.updateZoomLimits()
         updateZoomRectangle()
     }
@@ -253,6 +257,12 @@ Rectangle {
                         rect.oldWidth = rect.width
                     }
                 }
+
+                drag.onActiveChanged: {
+                    for(var key in d.zoomSeries) {
+                        d.zoomSeries[key].useOpenGL = drag.active
+                    }
+                }
             }
 
             states: [
@@ -287,7 +297,10 @@ Rectangle {
             anchors.horizontalCenter: zoomRectangle.left
             onXChanged: {
                 if(handleAreaLeft.drag.active) {
-                    d.zoomData[0].xMinLimit = previewChart.mapToValue(Qt.point(x, 0), d.previewSeries[0]).x
+                    var newXMin = previewChart.mapToValue(Qt.point(x, 0), d.previewSeries[0]).x
+                    for(var key in d.zoomData) {
+                        d.zoomData[key].xMinLimit = newXMin
+                    }
                 }
             }
 
@@ -304,6 +317,11 @@ Rectangle {
                 drag.threshold: 0
                 drag.maximumX: selectionRight.x-50
                 drag.minimumX: 15
+                drag.onActiveChanged: {
+                    for(var key in d.zoomSeries) {
+                        d.zoomSeries[key].useOpenGL = drag.active
+                    }
+                }
             }
 
             states: [
@@ -349,6 +367,11 @@ Rectangle {
                 drag.threshold: 0
                 drag.maximumX: previewChart.width-15
                 drag.minimumX: selectionLeft.x+50
+                drag.onActiveChanged: {
+                    for(var key in d.zoomSeries) {
+                        d.zoomSeries[key].useOpenGL = drag.active
+                    }
+                }
             }
 
             states: [

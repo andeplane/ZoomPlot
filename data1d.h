@@ -7,7 +7,6 @@ using namespace QtCharts;
 class Data1D : public QObject
 {
     Q_OBJECT
-    Q_PROPERTY(QString key READ key WRITE setKey NOTIFY keyChanged)
     Q_PROPERTY(bool enabled READ enabled WRITE setEnabled NOTIFY enabledChanged)
     Q_PROPERTY(float xMinLimit READ xMinLimit WRITE setXMinLimit NOTIFY xMinLimitChanged)
     Q_PROPERTY(float xMaxLimit READ xMaxLimit WRITE setXMaxLimit NOTIFY xMaxLimitChanged)
@@ -18,9 +17,9 @@ class Data1D : public QObject
     Q_PROPERTY(int stride READ stride WRITE setStride NOTIFY strideChanged)
     Q_PROPERTY(Data1D* parentData READ parentData WRITE setParentData NOTIFY parentDataChanged)
     Q_PROPERTY(QVariantMap subsets READ subsets WRITE setSubsets NOTIFY subsetsChanged)
+    Q_PROPERTY(QXYSeries* xySeries READ xySeries WRITE setXySeries NOTIFY xySeriesChanged)
 public:
     explicit Data1D(QObject *parent = 0);
-    Q_INVOKABLE void updateData(QAbstractSeries *series);
     Q_INVOKABLE void updateLimits();
     Q_INVOKABLE void add(float x, float y, bool silent = false);
     Q_INVOKABLE void addSubset(QString key, int stride, float xMinLimit = -std::numeric_limits<float>::infinity(), float xMaxLimit = std::numeric_limits<float>::infinity());
@@ -31,7 +30,6 @@ public:
     float yMin();
     float yMax();
     bool enabled() const;
-    QString key() const;
     QVariantMap subsets() const;
     int stride() const;
     Data1D* parentData() const;
@@ -39,6 +37,7 @@ public:
     float xMaxLimit() const;
     void resampleSubset(Data1D &subset);
     void doEmitUpdated(bool children);
+    QXYSeries* xySeries() const;
 
 signals:
     void xMinChanged(float xMin);
@@ -46,13 +45,13 @@ signals:
     void yMinChanged(float yMin);
     void yMaxChanged(float yMax);
     void enabledChanged(bool enabled);
-    void updated();
+    void updated(Data1D *data);
     void subsetsChanged(QVariantMap subsets);
     void strideChanged(int stride);
     void parentDataChanged(Data1D* parentData);
     void xMinLimitChanged(float xMinLimit);
     void xMaxLimitChanged(float xMaxLimit);
-    void keyChanged(QString key);
+    void xySeriesChanged(QXYSeries* xySeries);
 
 public slots:
     void setEnabled(bool enabled);
@@ -61,10 +60,11 @@ public slots:
     void setParentData(Data1D* parentData);
     void setXMinLimit(float xMinLimit);
     void setXMaxLimit(float xMaxLimit);
-    void setKey(QString key);
+    void setXySeries(QXYSeries* xySeries);
 
 private:
     Data1D* m_parentData = nullptr;
+    QXYSeries* m_xySeries = nullptr;
     QList<QPointF> m_points;
     QVariantMap m_subsets;
     float m_xMin = 0;
@@ -79,7 +79,6 @@ private:
     float m_xMinLimit;
     float m_xMaxLimit;
     void updateMinMaxWithPoint(const QPointF &point);
-    QString m_key;
 };
 
 #endif // DATA1D_H
