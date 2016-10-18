@@ -5,9 +5,7 @@
 
 Data1D::Data1D(QObject *parent) : QObject(parent)
 {
-    static_assert(std::numeric_limits<float>::is_iec559, "IEEE 754 required"); // -INFINITY and INFINITY supported
-    m_xMinLimit = -std::numeric_limits<float>::infinity();
-    m_xMaxLimit = std::numeric_limits<float>::infinity();
+
 }
 
 float Data1D::xMin()
@@ -37,14 +35,9 @@ float Data1D::yMax()
 void Data1D::updateLimits()
 {
     if(!m_minMaxValuesDirty) return;
+
     if(m_points.size() == 0) {
         m_minMaxValuesDirty = false;
-
-        m_xMax = m_xMaxLimit;
-        emit xMaxChanged(m_xMax);
-        m_xMin = m_xMinLimit;
-        emit xMinChanged(m_xMin);
-
         return;
     }
 
@@ -60,17 +53,36 @@ void Data1D::updateLimits()
         yMax = std::max(p.y(), yMax);
         yMin = std::min(p.y(), yMin);
     }
+    m_minMaxValuesDirty = false; // in case signals below trigger new calculation
+    bool anyChanges = false;
+    if(xMax != m_xMax) {
+        m_xMax = xMax;
+        emit xMaxChanged(m_xMax);
+        anyChanges = true;
+    }
 
-    m_xMax = xMax;
-    m_xMin = xMin;
-    m_yMax = yMax;
-    m_yMin = yMin;
-    m_minMaxValuesDirty = false;
+    if(xMin != m_xMin) {
+        m_xMin = xMin;
+        emit xMinChanged(m_xMin);
+        anyChanges = true;
+    }
 
-    emit xMaxChanged(m_xMax);
-    emit xMinChanged(m_xMin);
-    emit yMaxChanged(m_yMax);
-    emit yMinChanged(m_yMin);
+    if(yMax != m_yMax) {
+        m_yMax = yMax;
+        emit yMaxChanged(m_yMax);
+        anyChanges = true;
+    }
+
+    if(yMin != m_yMin) {
+        m_yMin = yMin;
+        emit yMinChanged(m_yMin);
+        anyChanges = true;
+    }
+
+    if(anyChanges) {
+        emit minMaxChanged();
+    }
+
 }
 
 QVariantMap Data1D::subsets() const
@@ -88,57 +100,20 @@ Data1D *Data1D::parentData() const
     return m_parentData;
 }
 
-float Data1D::xMinLimit() const
-{
-    return m_xMinLimit;
-}
-
-float Data1D::xMaxLimit() const
-{
-    return m_xMaxLimit;
-}
-
-void Data1D::resampleSubset(Data1D &subset)
-{
-    subset.clear(true);
-    // TODO: use binary search to find index of starting point based on subset's xMinLimit
-
-    for(const QPointF &p : m_points) {
-        subset.add(p, true);
-    }
-    subset.doEmitUpdated(false);
-}
-
-void Data1D::doEmitUpdated(bool children)
-{
-    if(m_dataDirty) {
-        if(m_xySeries) {
-            m_xySeries->replace(m_points);
-        }
-        emit updated(this);
-        m_dataDirty = false;
-    }
-    if(children) {
-        for(QVariant &variant : m_subsets) {
-            Data1D *data = variant.value<Data1D*>();
-            data->doEmitUpdated(children);
-        }
-    }
-}
-
 QXYSeries *Data1D::xySeries() const
 {
     return m_xySeries;
 }
 
-void Data1D::addSubset(QString key, int stride, float xMinLimit, float xMaxLimit)
+void Data1D::addSubset(QString key, int stride)
 {
     Data1D *data = new Data1D(this);
     data->setStride(stride);
-    data->setXMinLimit(xMinLimit);
-    data->setXMaxLimit(xMaxLimit);
     m_subsets.insert(key, QVariant::fromValue(data));
     data->setParentData(this);
+    for(const QPointF &p : m_points) {
+        data->add(p);
+    }
 }
 
 bool Data1D::enabled() const
@@ -146,81 +121,80 @@ bool Data1D::enabled() const
     return m_enabled;
 }
 
-void Data1D::clear(bool silent)
+void Data1D::clear()
 {
-    m_dataDirty = true;
     m_minMaxValuesDirty = true;
     m_points.clear();
     m_strideCount = 0;
     for(QVariant &variant : m_subsets) {
         Data1D *data = variant.value<Data1D*>();
-        data->clear(true);
+        data->clear();
     }
-
-    if(!silent) doEmitUpdated(true);
 }
 
-void Data1D::add(float x, float y, bool silent)
+void Data1D::add(float x, float y)
 {
-    // TODO: Update x/y limits when adding points instead of marking values as dirty
-    add(QPointF(x,y), silent);
+    add(QPointF(x,y));
 }
 
-void Data1D::add(const QPointF &point, bool silent)
+void Data1D::add(const QPointF &point)
 {
-    if(point.x() < m_xMinLimit || point.x() > m_xMaxLimit) return;
-
     if(m_parentData) {
-        if(++m_strideCount >= m_stride || m_points.size()==0) {
+        m_strideCount++;
+
+        if(m_points.size()==0 || m_strideCount >= m_stride) {
             // We should add this point and reset stride count if first point
             m_strideCount = 0;
         } else {
-            m_points.replace(m_points.size()-1, point);
-            m_dataDirty = true;
-            if(!silent) {
-                updateMinMaxWithPoint(point);
-                doEmitUpdated(true);
-            }
             return;
         }
     }
 
-    m_points.append(point);
-    m_dataDirty = true;
-    m_minMaxValuesDirty = true;
-
-    if(!silent) {
-        doEmitUpdated(true);
-        updateMinMaxWithPoint(point);
+    if(m_xySeries) {
+        m_xySeries->append(point.x(), point.y());
     }
+
+    emit updated(this);
+    m_points.append(point);
+    m_minMaxValuesDirty = true;
+    updateMinMaxWithPoint(point);
 
     for(QVariant &variant : m_subsets) {
         Data1D *data = variant.value<Data1D*>();
-        data->add(point, true);
+        data->add(point);
     }
 }
 
 void Data1D::updateMinMaxWithPoint(const QPointF &point) {
     m_minMaxValuesDirty = false;
 
+    bool anyChanges = false;
     if(m_xMax < point.x()) {
         m_xMax = point.x();
         emit xMaxChanged(m_xMax);
+        anyChanges = true;
     }
 
     if(m_xMin > point.x()) {
         m_xMin = point.x();
         emit xMinChanged(m_xMin);
+        anyChanges = true;
     }
 
     if(m_yMax < point.y()) {
         m_yMax = point.y();
         emit yMaxChanged(m_yMax);
+        anyChanges = true;
     }
 
     if(m_yMin > point.y()) {
         m_yMin = point.y();
         emit yMinChanged(m_yMin);
+        anyChanges = true;
+    }
+
+    if(anyChanges) {
+        emit minMaxChanged();
     }
 }
 
@@ -258,30 +232,6 @@ void Data1D::setParentData(Data1D *parentData)
 
     m_parentData = parentData;
     emit parentDataChanged(parentData);
-}
-
-void Data1D::setXMinLimit(float xMinLimit)
-{
-    if (m_xMinLimit == xMinLimit)
-        return;
-
-    m_xMinLimit = xMinLimit;
-    if(m_parentData) {
-        m_parentData->resampleSubset(*this);
-    }
-    emit xMinLimitChanged(xMinLimit);
-}
-
-void Data1D::setXMaxLimit(float xMaxLimit)
-{
-    if (m_xMaxLimit == xMaxLimit)
-        return;
-
-    m_xMaxLimit = xMaxLimit;
-    if(m_parentData) {
-        m_parentData->resampleSubset(*this);
-    }
-    emit xMaxLimitChanged(xMaxLimit);
 }
 
 void Data1D::setXySeries(QXYSeries *xySeries)

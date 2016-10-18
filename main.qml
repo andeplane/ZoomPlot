@@ -1,5 +1,6 @@
 import QtQuick 2.7
 import QtQuick.Controls 2.0
+import QtQuick.Controls 1.4 as QQC1
 import QtQuick.Layouts 1.0
 import QtCharts 2.1
 import Data1D 1.0
@@ -33,6 +34,7 @@ ApplicationWindow {
         Component.onCompleted: {
             addSubset("zoom", 1)
             addSubset("preview", 1)
+            addSubset("stride", 1)
         }
     }
 
@@ -41,6 +43,7 @@ ApplicationWindow {
         Component.onCompleted: {
             addSubset("zoom", 1)
             addSubset("preview", 1)
+            addSubset("stride", 1)
         }
     }
 
@@ -53,8 +56,9 @@ ApplicationWindow {
 //    ZoomablePlot2 {
 //        id: plot
 //        color: root.color
-//        xMinLimit: slider.first.value
-//        xMaxLimit: slider.second.value
+//        // xMinLimit: slider.first.value
+//        // xMaxLimit: slider.second.value
+//        xMaxLimit: slider.value
 //        anchors.fill: parent
 //    }
 
@@ -88,20 +92,29 @@ ApplicationWindow {
             }
         }
         Row {
-            Label {
-                width: 50
-                text: slider.first.value.toFixed(2)
-            }
-            RangeSlider {
+//            Label {
+//                width: 50
+//                text: slider.first.value.toFixed(2)
+//            }
+//            RangeSlider {
+//                id: slider
+//                from: 0
+//                to: 100
+//                second.value: 100
+//                first.value: 0
+//                width: row.width
+//            }
+
+            QQC1.Slider {
                 id: slider
-                from: 0
-                to: 100
-                second.value: 100
-                first.value: 0
+                minimumValue: 0
+                maximumValue: 100
+                value: 100
                 width: row.width
             }
+
             Label {
-                text: slider.second.value.toFixed(2)
+                text: slider.value.toFixed(2)
             }
         }
     }

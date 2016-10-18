@@ -22,8 +22,14 @@ Rectangle {
             var i = 0
             for(var key in dataSources) {
                 var dataSource = dataSources[key]
-                var zoomData = dataSource.subsets["zoom"]
-                var previewData = dataSource.subsets["preview"]
+                dataSource.minMaxChanged.connect(updatePreview)
+                dataSource.minMaxChanged.connect(updatePreview)
+
+                dataSource.minMaxChanged.connect(updateZoom)
+                dataSource.minMaxChanged.connect(updateZoom)
+
+                var previewData = dataSource
+                var zoomData = dataSource.subsets["stride"]
 
                 d.zoomData[i] = zoomData
                 d.previewData[i] = previewData
@@ -33,12 +39,8 @@ Rectangle {
                 zoomData.setXySeries(series)
 
                 series = previewChart.createSeries(ChartView.SeriesTypeLine, key, previewAxisX, previewAxisY);
-                series.useOpenGL=true
                 d.previewSeries[i] = series
                 previewData.setXySeries(series)
-
-                zoomData.onUpdated.connect( function() { updateZoom() } )
-                previewData.onUpdated.connect( function() { updatePreview() } )
 
                 i += 1
             }
@@ -49,6 +51,9 @@ Rectangle {
         id: d
         property real xMin: 0
         property real xMax: 1
+        property real xMinLimit: 0
+        property real xMaxLimit: 1
+
         property real yMin: 0
         property real yMax: 1
         property real previewXMin: 0
@@ -64,19 +69,30 @@ Rectangle {
         function updatePreviewLimits() {
             if(previewData.length === 0) return
             var first = true
+            var newXMax = 0
+            var newXMin = 0
+            var newYMax = 0
+            var newYMin = 0
+
             for(var key in zoomData) {
                 if(first) {
-                    previewXMin = previewData[key].xMin
-                    previewXMax = previewData[key].xMax
-                    previewYMin = previewData[key].yMin
-                    previewYMax = previewData[key].yMax
+                    newXMin = previewData[key].xMin
+                    newXMax = previewData[key].xMax
+                    newYMin = previewData[key].yMin
+                    newYMax = previewData[key].yMax
+                    first = false
                 }
 
-                previewXMin = Math.min(previewXMin, previewData[key].xMin)
-                previewXMax = Math.max(previewXMax, previewData[key].xMax)
-                previewYMin = Math.min(previewYMin, previewData[key].yMin)
-                previewYMax = Math.max(previewYMax, previewData[key].yMax)
+                newXMin = Math.min(newXMin, previewData[key].xMin)
+                newXMax = Math.max(newXMax, previewData[key].xMax)
+                newYMin = Math.min(newYMin, previewData[key].yMin)
+                newYMax = Math.max(newYMax, previewData[key].yMax)
             }
+
+            previewXMin = newXMin
+            previewXMax = newXMax
+            previewYMin = newYMin
+            previewYMax = newYMax
         }
 
         function updateZoomLimits() {
@@ -100,11 +116,11 @@ Rectangle {
     }
 
     function updateZoomRectangle() {
-        var leftPos = previewChart.mapToPosition(Qt.point(d.xMin, 0), d.previewSeries[0]).x
-        var rightPos = previewChart.mapToPosition(Qt.point(d.xMax, 0), d.previewSeries[0]).x
-
+        var leftPos = previewChart.mapToPosition(Qt.point(d.xMinLimit, 0), d.previewSeries[0]).x
+        var rightPos = previewChart.mapToPosition(Qt.point(d.xMaxLimit, 0), d.previewSeries[0]).x
         zoomRectangle.x = leftPos
         if(zoomRectangle.snappedToRight) {
+            d.xMaxLimit = d.xMax
             zoomRectangle.width = zoomRectangle.parent.width-leftPos
         } else {
             zoomRectangle.width = rightPos-leftPos
@@ -150,8 +166,8 @@ Rectangle {
         ValueAxis {
             id: axisX
             tickCount: 3
-            min: d.xMin
-            max: d.xMax
+            min: d.xMinLimit
+            max: d.xMaxLimit
             titleText: "y"
             color: "white"
             labelsColor: "black"
@@ -185,15 +201,10 @@ Rectangle {
         ChartView {
             id: previewChart
             anchors.fill: parent
-            property real xRange: previewAxisX.max - previewAxisX.min
             backgroundColor: root.color
             theme: ChartView.ChartThemeDark
             antialiasing: true
             legend.visible: false
-            onWidthChanged: {
-                selectionLeft.x = width*selectionLeft.percentagePosition
-                selectionRight.x = width*selectionRight.percentagePosition
-            }
 
             ValueAxis {
                 id: previewAxisX
@@ -233,14 +244,12 @@ Rectangle {
                     zoomRectangle.snappedToRight = false
                 }
 
-                for(var key in d.zoomData) {
-                    if(zoomRectangle.snappedToRight) {
-                        d.zoomData[key].xMaxLimit = Infinity
-                    } else {
-                        d.zoomData[key].xMaxLimit = newXMaxLimit
-                    }
-                    d.zoomData[key].xMinLimit = previewChart.mapToValue(Qt.point(x, 0), d.previewSeries[0]).x
+                if(zoomRectangle.snappedToRight) {
+                    d.xMaxLimit = Infinity
+                } else {
+                    d.xMaxLimit  = newXMaxLimit
                 }
+                d.xMinLimit = previewChart.mapToValue(Qt.point(x, 0), d.previewSeries[0]).x
 
             }
 
@@ -255,12 +264,6 @@ Rectangle {
                 onPressed: {
                     if(!zoomRectangle.snappedToRight || rect.oldWidth===0) {
                         rect.oldWidth = rect.width
-                    }
-                }
-
-                drag.onActiveChanged: {
-                    for(var key in d.zoomSeries) {
-                        d.zoomSeries[key].useOpenGL = drag.active
                     }
                 }
             }
@@ -298,9 +301,7 @@ Rectangle {
             onXChanged: {
                 if(handleAreaLeft.drag.active) {
                     var newXMin = previewChart.mapToValue(Qt.point(x, 0), d.previewSeries[0]).x
-                    for(var key in d.zoomData) {
-                        d.zoomData[key].xMinLimit = newXMin
-                    }
+                    d.xMinLimit = newXMin
                 }
             }
 
@@ -317,11 +318,6 @@ Rectangle {
                 drag.threshold: 0
                 drag.maximumX: selectionRight.x-50
                 drag.minimumX: 15
-                drag.onActiveChanged: {
-                    for(var key in d.zoomSeries) {
-                        d.zoomSeries[key].useOpenGL = drag.active
-                    }
-                }
             }
 
             states: [
@@ -343,16 +339,13 @@ Rectangle {
                 if(d.previewData.length===0) return;
                 if(handleAreaRight.drag.active) {
                     zoomRectangle.snappedToRight = previewChart.mapToValue(Qt.point(x, 0), d.previewSeries[0]).x >= d.previewXMax
-                    for(var key in d.zoomData) {
-                        if(zoomRectangle.snappedToRight) {
-                            d.zoomData[key].xMaxLimit = Infinity
-                        } else {
-                            d.zoomData[key].xMaxLimit = previewChart.mapToValue(Qt.point(x, 0), d.previewSeries[0]).x
-                        }
+                    if(zoomRectangle.snappedToRight) {
+                        d.xMaxLimit = d.xMax
+                    } else {
+                        d.xMaxLimit = previewChart.mapToValue(Qt.point(x, 0), d.previewSeries[0]).x
                     }
                 }
             }
-
 
             anchors {
                 top: parent.top
@@ -367,11 +360,6 @@ Rectangle {
                 drag.threshold: 0
                 drag.maximumX: previewChart.width-15
                 drag.minimumX: selectionLeft.x+50
-                drag.onActiveChanged: {
-                    for(var key in d.zoomSeries) {
-                        d.zoomSeries[key].useOpenGL = drag.active
-                    }
-                }
             }
 
             states: [
