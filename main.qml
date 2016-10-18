@@ -50,25 +50,58 @@ ApplicationWindow {
         anchors.fill: parent
     }
 
-    Row {
-        Button {
-            text: "Add plots"
+//    ZoomablePlot2 {
+//        id: plot
+//        color: root.color
+//        xMinLimit: slider.first.value
+//        xMaxLimit: slider.second.value
+//        anchors.fill: parent
+//    }
 
-            onClicked: {
-                plot.dataSources = {"myData1": data1, "myData2": data2 }
+    Column {
+        Row {
+            id: row
+            Button {
+                text: "Add plots"
+
+                onClicked: {
+                    plot.dataSources = [data1, data2]
+                }
+            }
+
+            Button {
+                text: "Add point"
+                onClicked: addPoint()
+            }
+
+            Button {
+                text: "Zoom"
+                onClicked: plot.zoom()
+            }
+
+            Button {
+                text: timer.running ? "Stop timer" : "Start timer"
+                onClicked: {
+                    if(timer.running) timer.stop()
+                    else timer.start()
+                }
             }
         }
-
-        Button {
-            text: "Add point"
-            onClicked: addPoint()
-        }
-
-        Button {
-            text: timer.running ? "Stop timer" : "Start timer"
-            onClicked: {
-                if(timer.running) timer.stop()
-                else timer.start()
+        Row {
+            Label {
+                width: 50
+                text: slider.first.value.toFixed(2)
+            }
+            RangeSlider {
+                id: slider
+                from: 0
+                to: 100
+                second.value: 100
+                first.value: 0
+                width: row.width
+            }
+            Label {
+                text: slider.second.value.toFixed(2)
             }
         }
     }

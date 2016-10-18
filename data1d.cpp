@@ -100,9 +100,6 @@ float Data1D::xMaxLimit() const
 
 void Data1D::resampleSubset(Data1D &subset)
 {
-    QElapsedTimer t;
-    t.start();
-
     subset.clear(true);
     // TODO: use binary search to find index of starting point based on subset's xMinLimit
 
